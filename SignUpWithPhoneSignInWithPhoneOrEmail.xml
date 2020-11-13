@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<TrustFrameworkPolicy PolicySchemaVersion="0.3.0.0" TenantId="yourtenant.onmicrosoft.com" PolicyId="B2C_1A_SignUpWithPhoneSignInWithPhoneOrEmail" PublicPolicyUri="http://yourtenant.onmicrosoft.com/B2C_1A_SignUpWithPhoneSignInWithPhoneOrEmail"
+  xmlns="http://schemas.microsoft.com/online/cpim/schemas/2013/06"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <BasePolicy>
+    <TenantId>yourtenant.onmicrosoft.com</TenantId>
+    <PolicyId>B2C_1A_TrustFrameworkBase</PolicyId>
+  </BasePolicy>
+
+  <UserJourneys>
+    <UserJourney Id="SignUpWithPhoneSignInWithPhoneOrEmail">
+      <OrchestrationSteps>
+        <!-- sign up sign in  -->
+        <OrchestrationStep Order="1" Type="CombinedSignInAndSignUp" ContentDefinitionReferenceId="signUpOrSignInPhoneEmail">
+          <ClaimsProviderSelections>
+            <ClaimsProviderSelection TargetClaimsExchangeId="SignUpWithPhoneVerify" />
+            <ClaimsProviderSelection ValidationClaimsExchangeId="LocalAccountSigninPhoneEmailExchange" />
+          </ClaimsProviderSelections>
+          <ClaimsExchanges>
+            <ClaimsExchange Id="LocalAccountSigninPhoneEmailExchange" TechnicalProfileReferenceId="SelfAsserted-LocalAccountSignin-Phone-Email" />
+          </ClaimsExchanges>
+        </OrchestrationStep>
+        <!-- if the user is signing up - verify their phone number -->
+        <OrchestrationStep Order="2" Type="ClaimsExchange">
+          <Preconditions>
+            <Precondition Type="ClaimsExist" ExecuteActionsIf="true">
+              <Value>objectId</Value>
+              <Action>SkipThisOrchestrationStep</Action>
+            </Precondition>
+          </Preconditions>
+          <ClaimsExchanges>
+            <ClaimsExchange Id="SignUpWithPhoneVerify" TechnicalProfileReferenceId="SelfAsserted-LocalAccountSignUpWithLogonPhoneNumber-VerifyPhoneNumber" />
+          </ClaimsExchanges>
+        </OrchestrationStep>
+        <!-- if the user is signing up and they have verified their phone number, get their name, surname and password -->
+        <OrchestrationStep Order="3" Type="ClaimsExchange">
+          <Preconditions>
+            <Precondition Type="ClaimsExist" ExecuteActionsIf="true">
+              <Value>objectId</Value>
+              <Action>SkipThisOrchestrationStep</Action>
+            </Precondition>
+          </Preconditions>
+          <ClaimsExchanges>
+            <ClaimsExchange Id="SignUpWithPhoneCollect" TechnicalProfileReferenceId="SelfAsserted-LocalAccountSignUpWithLogonPhoneNumber-CollectDetails" />
+          </ClaimsExchanges>
+        </OrchestrationStep>
+        <!-- if the user is signed up or logged in (we have an object id) - we want to read their profile to ensure we have all the details we need for the JWT -->
+        <OrchestrationStep Order="4" Type="ClaimsExchange">
+          <Preconditions>
+            <Precondition Type="ClaimsExist" ExecuteActionsIf="false">
+              <Value>objectId</Value>
+              <Action>SkipThisOrchestrationStep</Action>
+            </Precondition>
+          </Preconditions>
+          <ClaimsExchanges>
+            <ClaimsExchange Id="GetUserDetails" TechnicalProfileReferenceId="AAD-GetUserById" />
+          </ClaimsExchanges>
+        </OrchestrationStep>
+        <OrchestrationStep Order="5" Type="SendClaims" CpimIssuerTechnicalProfileReferenceId="JwtIssuer" />
+      </OrchestrationSteps>
+    </UserJourney>
+  </UserJourneys>
+
+  <RelyingParty>
+    <DefaultUserJourney ReferenceId="SignUpWithPhoneSignInWithPhoneOrEmail" />
+    <TechnicalProfile Id="RelyingParty-SignUpWithPhoneSignInWithPhoneOrEmail">
+      <DisplayName>Relying Party</DisplayName>
+      <Protocol Name="OpenIdConnect" />
+      <OutputClaims>
+        <OutputClaim ClaimTypeReferenceId="displayName" />
+        <OutputClaim ClaimTypeReferenceId="givenName" PartnerClaimType="given_name"/>
+        <OutputClaim ClaimTypeReferenceId="surname" PartnerClaimType="family_name"/>
+        <OutputClaim ClaimTypeReferenceId="objectId" PartnerClaimType="sub"/>
+        <OutputClaim ClaimTypeReferenceId="newUser" />
+        <OutputClaim ClaimTypeReferenceId="tenantId" AlwaysUseDefaultValue="true" DefaultValue="{Policy:TenantObjectId}" />
+      </OutputClaims>
+      <SubjectNamingInfo ClaimType="sub" />
+    </TechnicalProfile>
+  </RelyingParty>
+</TrustFrameworkPolicy>

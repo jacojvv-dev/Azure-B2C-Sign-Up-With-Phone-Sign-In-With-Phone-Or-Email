@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<TrustFrameworkPolicy PolicySchemaVersion="0.3.0.0" TenantId="yourtenant.onmicrosoft.com" PolicyId="B2C_1A_LinkEmailToAccount" PublicPolicyUri="http://yourtenant.onmicrosoft.com/B2C_1A_LinkEmailToAccount"
+  xmlns="http://schemas.microsoft.com/online/cpim/schemas/2013/06"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <BasePolicy>
+    <TenantId>yourtenant.onmicrosoft.com</TenantId>
+    <PolicyId>B2C_1A_TrustFrameworkBase</PolicyId>
+  </BasePolicy>
+
+  <BuildingBlocks>
+    <ClaimsSchema>
+      <ClaimType Id="emailAlreadyLinked">
+        <DisplayName></DisplayName>
+        <DataType>string</DataType>
+        <UserInputType>Paragraph</UserInputType>
+      </ClaimType>
+    </ClaimsSchema>
+    <ContentDefinitions>
+      <ContentDefinition Id="emailAlreadyLinked">
+        <LoadUri>~/tenant/templates/AzureBlue/selfAsserted.cshtml</LoadUri>
+        <RecoveryUri>~/common/default_page_error.html</RecoveryUri>
+        <DataUri>urn:com:microsoft:aad:b2c:elements:contract:selfasserted:2.0.0</DataUri>
+        <Metadata>
+          <Item Key="DisplayName">Local Account E-mail Address Already Linked</Item>
+        </Metadata>
+      </ContentDefinition>
+    </ContentDefinitions>
+  </BuildingBlocks>
+
+  <ClaimsProviders>
+    <ClaimsProvider>
+      <DisplayName>Self Asserted</DisplayName>
+      <TechnicalProfiles>
+        <TechnicalProfile Id="SelfAsserted-LocalAccount-EmailAlreadyLinked">
+          <DisplayName>Local Account E-mail Address Already Linked</DisplayName>
+          <Protocol Name="Proprietary" Handler="Web.TPEngine.Providers.SelfAssertedAttributeProvider, Web.TPEngine, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" />
+          <Metadata>
+            <Item Key="ContentDefinitionReferenceId">emailAlreadyLinked</Item>
+            <Item Key="setting.showContinueButton">false</Item>
+          </Metadata>
+          <InputClaims>
+            <InputClaim ClaimTypeReferenceId="emailAlreadyLinked" DefaultValue="An e-mail address has already been linked to this account." AlwaysUseDefaultValue="true" />
+          </InputClaims>
+          <OutputClaims>
+            <OutputClaim ClaimTypeReferenceId="emailAlreadyLinked" />
+          </OutputClaims>
+        </TechnicalProfile>
+      </TechnicalProfiles>
+    </ClaimsProvider>
+  </ClaimsProviders>
+
+  <UserJourneys>
+    <UserJourney Id="LinkEmailToAccount">
+      <OrchestrationSteps>
+        <!-- sign up sign in  -->
+        <OrchestrationStep Order="1" Type="CombinedSignInAndSignUp" ContentDefinitionReferenceId="signUpOrSignInPhoneEmail">
+          <ClaimsProviderSelections>
+            <ClaimsProviderSelection ValidationClaimsExchangeId="SelfAsserted-LocalAccountSignin-Phone-Email-WithoutRegistration" />
+          </ClaimsProviderSelections>
+          <ClaimsExchanges>
+            <ClaimsExchange Id="SelfAsserted-LocalAccountSignin-Phone-Email-WithoutRegistration" TechnicalProfileReferenceId="SelfAsserted-LocalAccountSignin-Phone-Email-WithoutRegistration" />
+          </ClaimsExchanges>
+        </OrchestrationStep>
+        <!-- retrieve the details of the user -->
+        <OrchestrationStep Order="2" Type="ClaimsExchange">
+          <ClaimsExchanges>
+            <ClaimsExchange Id="GetUserDetails" TechnicalProfileReferenceId="AAD-GetUserById" />
+          </ClaimsExchanges>
+        </OrchestrationStep>
+        <!-- if their email exists - they have already linked their email -->
+        <OrchestrationStep Order="3" Type="ClaimsExchange">
+          <Preconditions>
+            <Precondition Type="ClaimsExist" ExecuteActionsIf="false">
+              <Value>signInNames.emailAddress</Value>
+              <Action>SkipThisOrchestrationStep</Action>
+            </Precondition>
+          </Preconditions>
+          <ClaimsExchanges>
+            <ClaimsExchange Id="SelfAsserted-LocalAccount-EmailAlreadyLinked" TechnicalProfileReferenceId="SelfAsserted-LocalAccount-EmailAlreadyLinked" />
+          </ClaimsExchanges>
+        </OrchestrationStep>
+        <!-- if they are signed in and they the email isn't already set, get the email -->
+        <OrchestrationStep Order="4" Type="ClaimsExchange">
+          <Preconditions>
+            <Precondition Type="ClaimsExist" ExecuteActionsIf="false">
+              <Value>objectId</Value>
+              <Action>SkipThisOrchestrationStep</Action>
+            </Precondition>
+            <Precondition Type="ClaimsExist" ExecuteActionsIf="true">
+              <Value>signInNames.emailAddress</Value>
+              <Action>SkipThisOrchestrationStep</Action>
+            </Precondition>
+          </Preconditions>
+          <ClaimsExchanges>
+            <ClaimsExchange Id="SelfAsserted-LocalAccount-EmailVerification" TechnicalProfileReferenceId="SelfAsserted-LocalAccount-EmailVerification" />
+          </ClaimsExchanges>
+        </OrchestrationStep>
+        <!-- if they are signed in and the email is not set and a new email is specified, update their account -->
+        <OrchestrationStep Order="5" Type="ClaimsExchange">
+          <Preconditions>
+            <Precondition Type="ClaimsExist" ExecuteActionsIf="false">
+              <Value>objectId</Value>
+              <Action>SkipThisOrchestrationStep</Action>
+            </Precondition>
+            <Precondition Type="ClaimsExist" ExecuteActionsIf="false">
+              <Value>email</Value>
+              <Action>SkipThisOrchestrationStep</Action>
+            </Precondition>
+            <Precondition Type="ClaimsExist" ExecuteActionsIf="true">
+              <Value>signInNames.emailAddress</Value>
+              <Action>SkipThisOrchestrationStep</Action>
+            </Precondition>
+          </Preconditions>
+          <ClaimsExchanges>
+            <ClaimsExchange Id="AAD-SetUserEmail" TechnicalProfileReferenceId="AAD-SetUserEmail" />
+          </ClaimsExchanges>
+        </OrchestrationStep>
+        <!-- finally - generate a token -->
+        <OrchestrationStep Order="6" Type="SendClaims" CpimIssuerTechnicalProfileReferenceId="JwtIssuer" />
+      </OrchestrationSteps>
+    </UserJourney>
+  </UserJourneys>
+
+  <RelyingParty>
+    <DefaultUserJourney ReferenceId="LinkEmailToAccount" />
+    <TechnicalProfile Id="RelyingParty-LinkEmailToAccount">
+      <DisplayName>Relying Party</DisplayName>
+      <Protocol Name="OpenIdConnect" />
+      <OutputClaims>
+        <OutputClaim ClaimTypeReferenceId="displayName" />
+        <OutputClaim ClaimTypeReferenceId="givenName" PartnerClaimType="given_name"/>
+        <OutputClaim ClaimTypeReferenceId="surname" PartnerClaimType="family_name"/>
+        <OutputClaim ClaimTypeReferenceId="objectId" PartnerClaimType="sub"/>
+        <OutputClaim ClaimTypeReferenceId="newUser" AlwaysUseDefaultValue="true" DefaultValue="false"/>
+        <OutputClaim ClaimTypeReferenceId="tenantId" AlwaysUseDefaultValue="true" DefaultValue="{Policy:TenantObjectId}" />
+      </OutputClaims>
+      <SubjectNamingInfo ClaimType="sub" />
+    </TechnicalProfile>
+  </RelyingParty>
+</TrustFrameworkPolicy>
